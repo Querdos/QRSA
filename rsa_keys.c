@@ -1,5 +1,5 @@
 /*
- * File: rsa.h
+ * File: rsa_keys.c
  * Created by Hamza ESSAYEGH (Querdos)
  */
 
@@ -91,7 +91,7 @@ int save_keypair(mpz_t n, mpz_t e, mpz_t d) {
 	write_chars(n_str, count+1, fp_rsa);
 	
 	free(n_str);
-	fputs("\n--- END PRIVATE KEY ---", fp_rsa);
+	fputs("\n--- END PRIVATE KEY ---\n", fp_rsa);
 
 	// closing file
 	fclose(fp_rsa);
@@ -137,36 +137,48 @@ int load_priv(mpz_t n, mpz_t d) {
 	
 	step = 1;
 	count = 0;
-	while (strcmp(line, "--- END PRIVATE KEY ---") != 0 ) {
+	while (fgets(line, MAX_CHARS_LINES+2, fp_rsa) != NULL) {
+		// skipping first line
+		if (strcmp(line, "--- BEGIN PRIVATE KEY ---\n") == 0) {
+			continue;
+		}
+		
+		// skipping last line
+		if (strcmp(line, "--- END PRIVATE KEY ---\n") == 0) {
+			fclose(fp_rsa);
+			break;	
+		}
+		
+		// checking the space char
 		for (i=0; i<MAX_CHARS_LINES; i++) {
+			// step 2
 			if (line[i] == '/') {
-				step = 2;
 				count = 0;
+				step = 2;
 				continue;
 			}
 			
-			if (step == 1) {
+			// step 1, filling e_str
+			if (step == 1 && line[i] != '\n') {
 				d_str[count] = line[i];
-			} else {
-				n_str[count] = line[i];
+				count++;
 			}
 			
-			count++;
+			// step 2, filling n_str
+			if (step == 2 && line[i] != '\n') {
+				n_str[count] = line[i];
+				count++;
+			}
 		}
-		
-		fgets(line, MAX_CHARS_LINES+2, fp_rsa);
 	}
-	fclose(fp_rsa);
 	
 	// inits
 	mpz_inits(n, d, NULL);
 	
 	// converting 
 	mpz_set_str(n, n_str, BASE_SAVE);
-	mpz_set_str(d, d_str, BASE_SAVE);
-	
-	// closing
 	free(n_str);
+	mpz_set_str(d, d_str, BASE_SAVE);
 	free(d_str);
 	
 	return 0;
@@ -179,7 +191,7 @@ int load_pub(mpz_t n, mpz_t e) {
 	// vars
 	FILE *fp_rsa_pub, *lines_cmd;
 	char *n_str, *e_str, line[MAX_CHARS_LINES], char_pub;
-	int chars, i, step, count, len_beg, len_end;
+	int chars, i, step, count;
 	
 	// public key
 	fp_rsa_pub = fopen(".rsa/rsa.pub", "r");
@@ -193,7 +205,7 @@ int load_pub(mpz_t n, mpz_t e) {
 	// counting lines
 	lines_cmd = popen("wc -m < .rsa/rsa.pub", "r");
 	fgets(line, 10, lines_cmd);
-	chars = atoi(line) - 2; // removing first and last line
+	chars = atoi(line); // removing first and last line
 	pclose(lines_cmd);
 	
 	// allocating e_str (will never change: HbN)
@@ -202,9 +214,7 @@ int load_pub(mpz_t n, mpz_t e) {
 	
 	// allocating n_str (some \n will remain...)
 	// TODO: allocate the correct space
-	len_beg = strlen("--- BEGIN PUBLIC KEY ---\n");
-	len_end = strlen("--- END PUBLIC KEY ---\n");
-	n_str 	 = malloc((chars - len_beg - len_end - 1) * sizeof(char));
+	n_str 	 = malloc(chars * sizeof(char));
 	memset(n_str, '\0', sizeof(n_str));
 	
 	step = 1;
@@ -217,32 +227,32 @@ int load_pub(mpz_t n, mpz_t e) {
 		
 		// skipping last line
 		if (strcmp(line, "--- END PUBLIC KEY ---\n") == 0) {
-			//fclose(fp_rsa_pub);
+			fclose(fp_rsa_pub);
 			break;	
 		}
 		
+		// checking the space char
 		for (i=0; i<MAX_CHARS_LINES; i++) {
-			// incrementing step when encountering '/'
+			// step 2
 			if (line[i] == '/') {
 				count = 0;
 				step = 2;
 				continue;
 			}
 			
-			// building e_str if step 1
-			if (step == 1) {
+			// step 1, filling e_str
+			if (step == 1 && line[i] != '\n') {
 				e_str[count] = line[i];
 				count++;
 			}
 			
-			// building n_str if step 2
-			if (step == 2) {
+			// step 2, filling n_str
+			if (step == 2 && line[i] != '\n') {
 				n_str[count] = line[i];
 				count++;
 			}
 		}
 	}
-	fclose(fp_rsa_pub);
 	
 	// inits
 	mpz_inits(n, e, NULL);
@@ -253,6 +263,5 @@ int load_pub(mpz_t n, mpz_t e) {
 	mpz_set_str(e, e_str, BASE_SAVE);
 	free(e_str);
 
-	// TODO: See why problem with free(n/e_str)
 	return 0;
 }

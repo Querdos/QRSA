@@ -1,5 +1,5 @@
 /*
- * File: rsa.h
+ * File: main.c
  * Created by Hamza ESSAYEGH (Querdos)
  */
 
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 		if (load_pub(n, e) == -1) {
 			exit(1);
 		}
-		
+	
 		// opening the file (not encrypted)
 		fp_plain = fopen(argv[2], "r");
 		
@@ -95,7 +95,9 @@ int main(int argc, char** argv) {
 		}
 		
 		// retrieving rsa key pair (private)
-		load_priv(n, d);
+		if (-1 == load_priv(n, d)) {
+			exit(1);
+		}
 		
 		// number of chars in encrypted file
 		wc_command = malloc((strlen(argv[2]) + 8) * sizeof(char));

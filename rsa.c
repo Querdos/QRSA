@@ -1,5 +1,5 @@
 /*
- * File: rsa.h
+ * File: rsa.c
  * Created by Hamza ESSAYEGH (Querdos)
  */
  
@@ -198,7 +198,7 @@ void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
     
     // Checking message length
     if (comp1 < 0 || comp2 > 0) {
-		printf("sSMessage representative out of range\n");
+		printf("Message representative out of range\n");
 		mpz_clear(sub);
 		exit(1);
 	}
@@ -262,63 +262,67 @@ void rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
  */
 void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// vars
-	size_t mLen, k;
+	int mLen, k;
 	unsigned char *PS, *EM, *C;
 	gmp_randstate_t rs;
-	mpz_t random_char, max_char;
 	mpz_t m, c;
 	FILE *fp_encrypted;
-	int i;
+	int i, step, count;
 	
 	// assigning	
-	mLen = sizeof(M);
-	k = mpz_size(n);
+	mLen = strlen(M);
+	k 	 = mpz_sizeinbase(n, 10) - 1;
 	
 	// length checking 
 	if (mLen > (k-11)) {
-		printf("message too large\n");
+		printf("Message too large\n");
 		exit(1);
 	}
 	
-	mpz_inits(random_char, max_char, m, c, NULL);
-	
-	// Initializing rs
-	gmp_randinit_default(rs);
-	gmp_randseed_ui(rs, (rand() % MAX) + MIN);
-	mpz_set_ui(max_char, 256); // 256 - 1 = 255
+	mpz_inits(m, c, NULL);
 	
 	// allocating PS
 	PS = malloc((k - mLen - 3) * sizeof(unsigned char));
+	memset(PS, '\0', sizeof(PS));
 	
-	// Generate an octet string 2048PS of length k - mLen - 3 consisting
+	// Generate an octet string PS of length k - mLen - 3 consisting
     // of pseudo-randomly generated nonzero octets.  The length of PS
     // will be at least eight octets.
-    mpz_set_d(random_char, 0);
-    memset(PS, '\0', sizeof(PS));
+    count = 0;
 	for (i=0; i<(k-mLen-3); i++) {
-		while (mpz_cmp_d(random_char, 0) == 0) { // non zero
-			mpz_urandomm(random_char, rs, max_char);
-		}
-		
-		PS[i] = (unsigned char) mpz_get_ui(random_char);
-		mpz_set_d(random_char, 0);
+		PS[i] = rand() % 255 + 1;
 	}
+
 	EM = malloc(k * sizeof(unsigned char));
-	mpz_clears(random_char, max_char, NULL);
+	memset(EM, '\0', k);
     
     // Concatenate PS, the message M, and other padding to form an
     // encoded message EM of length k octets as
 	// EM = 00 | 02 | PS | 00 | M
 	EM[0] = 0;
 	EM[1] = 2;
-	strcat(EM, PS);
-	EM[strlen(PS) + 2] = 0;
-	strcat(EM, M);
+	
+	i=2;
+	count = 0;
+	for (i; i<(k-mLen-1); i++) {
+		EM[i] = PS[count];
+		count++;
+	}
+	
+	EM[i] = 0;
+	
+	i++;
+	count = 0;
+	for (i; i<k; i++) {
+		EM[i] = M[count];
+		count++;
+	}
 	free(PS);
-
+	
 	// Convert the encoded message EM to an integer message
     // representative m
     os2ip(m, EM);
+    gmp_printf("%Zd\n", m);
     free(EM);
     
     // Apply the RSAEP encryption primitive to the RSA
