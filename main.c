@@ -71,10 +71,14 @@ int main(int argc, char** argv) {
 		memset(filename, '\0', sizeof(filename));
 		
 		sprintf(filename, "%s.enc", argv[2]);
-		rsaes_pkcs1_encrypt(n, e, plain, filename);
-		free(filename);
+		if (-1 == rsaes_pkcs1_encrypt(n, e, plain, filename)) {
+			mpz_clears(n, e, NULL);
+			free(filename);
+			exit(1);
+		}
 		
 		// cleaning
+		free(filename);
 		mpz_clears(n, e, NULL);
 	}
 	

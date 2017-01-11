@@ -84,10 +84,10 @@ void generate_keypair(mpz_t n, mpz_t e, mpz_t d) {
  *
  * Error: "integer too large"
  */
-unsigned char * i2osp(mpz_t x, int xLen) {
+int i2osp(char *X, mpz_t x, int xLen) {
 	// vars
 	mpz_t pow256, q, r, x_copy;
-	unsigned char *X, temp;
+	unsigned char temp;
 	int i;
 	
 	// init
@@ -98,8 +98,7 @@ unsigned char * i2osp(mpz_t x, int xLen) {
 	if (mpz_cmp(x, pow256) >= 0) {
 		printf("Integer too large\n");
 		mpz_clear(pow256);
-		exit(1);
-		//return -1;
+		return -1;
 	}
 	
 	// clearing pow256
@@ -123,12 +122,11 @@ unsigned char * i2osp(mpz_t x, int xLen) {
 	}
 	mpz_clears(r, x_copy, NULL);
 	
-	
 	// appending the rest
 	X[i] = (unsigned char) mpz_get_d(q);
 	
 	mpz_clear(q);
-	return X;
+	return 0;
 } 
 
 /**
@@ -140,14 +138,10 @@ unsigned char * i2osp(mpz_t x, int xLen) {
  *  Output:
  *  x        corresponding nonnegative integer 
  */
-void os2ip(mpz_t x, unsigned char *X) {
+void os2ip(mpz_t x, unsigned char *X, size_t xLen) {
 	// vars
 	int i;
-	size_t xLen;
 	mpz_t x_i, pow256;
-	
-	// retreiveing xLen
-	xLen = strlen(X);
 	
 	// checking x (must be 0)
 	mpz_set_ui(x, 0);
@@ -167,6 +161,7 @@ void os2ip(mpz_t x, unsigned char *X) {
 		mpz_add(x, x, x_i);
 	}
 	
+	// clearing
 	mpz_clears(x_i, pow256, NULL);
 }
 
@@ -182,7 +177,7 @@ void os2ip(mpz_t x, unsigned char *X) {
  *
  * Assumption: RSA public key (n, e) is valid
  */
-void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
+int rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
 	// If the message representative m is not between 0 and n - 1, output
     // "message representative out of range" and stop.
     mpz_t sub;
@@ -200,7 +195,7 @@ void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
     if (comp1 < 0 || comp2 > 0) {
 		printf("Message representative out of range\n");
 		mpz_clear(sub);
-		exit(1);
+		return -1;
 	}
 	
 	// Clearing sub
@@ -208,6 +203,8 @@ void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
 	
 	// Let c = m^e mod n
 	mpz_powm(cipher, message, e, n);
+	
+	return 0;
 }
 
 /**
@@ -225,7 +222,7 @@ void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
  *
  * Assumption: RSA private key K is valid
  */
-void rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
+int rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
 	mpz_t sub;
 	int comp1, comp2;
 	
@@ -239,13 +236,15 @@ void rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
 	
 	// Checking cipher representative
 	if (comp1 < 0 || comp2 > 0) {
-		printf("cipher representative out of range\n");
+		printf("Cipher representative out of range\n");
 		mpz_clear(sub);
-		exit(1);
+		return -1;
 	}
 	
 	// Let m = c^d mod n
-	mpz_powm(deciphered, cipher, d, n);		
+	mpz_powm(deciphered, cipher, d, n);
+	
+	return 0;
 }
 
 /**
@@ -260,7 +259,7 @@ void rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
  *
  * Error: "message too long"
  */
-void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
+int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// vars
 	int mLen, k;
 	unsigned char *PS, *EM, *C;
@@ -276,10 +275,8 @@ void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// length checking 
 	if (mLen > (k-11)) {
 		printf("Message too large\n");
-		exit(1);
+		return -1;
 	}
-	
-	mpz_inits(m, c, NULL);
 	
 	// allocating PS
 	PS = malloc((k - mLen - 3) * sizeof(unsigned char));
@@ -321,28 +318,49 @@ void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	
 	// Convert the encoded message EM to an integer message
     // representative m
-    os2ip(m, EM);
-    gmp_printf("%Zd\n", m);
+    mpz_init(m);
+    os2ip(m, EM, k);
     free(EM);
     
     // Apply the RSAEP encryption primitive to the RSA
     // public key (n, e) and the message representative m to produce
     // an integer ciphertext representative c
-    rsaep(c, n, e, m);
+    mpz_init(c);
+    if (-1 == rsaep(c, n, e, m)) {
+		mpz_clear(c);
+		mpz_clear(m);
+		return -1;
+	}
+	
+	// clearing
     mpz_clear(m);
     
     // Convert the ciphertext representative c to a ciphertext C of
     // length k octets
-    C = i2osp(c, k);
+    if (-1 == i2osp(C, c, k)) {
+		mpz_clear(c);
+		free(C);
+		return -1;
+	}
+	
+	// clearing
     mpz_clear(c);
 	
     // saving to file
     fp_encrypted = fopen(filename, "w");
+    if (NULL == fp_encrypted) {
+		printf("Unable to open file %s for saving. Aborting.\n", filename);
+		free(C);
+		return -1;
+	}
+	
     for (i=0; i<k; i++) {
 		fputc(C[i], fp_encrypted);
 	}
 	fclose(fp_encrypted);
 	free(C);
+	
+	return 0;
 }
 
 /**
@@ -377,7 +395,7 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int k, unsigned char *C, c
 	// Convert the ciphertext C to an integer ciphertext
     // representative c
     mpz_init(c);
-    os2ip(c, C);
+    //os2ip(c, C);
     
     // Apply the RSADP decryption primitive to the RSA
     // private key (n, d) and the ciphertext representative c to
@@ -387,7 +405,7 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int k, unsigned char *C, c
 	
 	// Convert the message representative m to an encoded message EM
     // of length k octets
-    EM = i2osp(m, k);
+    i2osp(EM, m, k);
     
 	
 	unsigned char *M;
