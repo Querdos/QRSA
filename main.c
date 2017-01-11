@@ -32,19 +32,21 @@ int main(int argc, char** argv) {
 	if (strcmp(argv[1], "--encrypt") == 0) {		
 		// vars
 		FILE *fp_plain, *size_of_file;
-		mpz_t n, e, d;
+		mpz_t n, e;
 		unsigned char *encrypted, *plain;
 		unsigned long size;
 		char command_wc[11], count[3], *filename;
 		
 		// generating the key pair
-		load_pub(n, e);
+		if (load_pub(n, e) == -1) {
+			exit(1);
+		}
 		
 		// opening the file (not encrypted)
 		fp_plain = fopen(argv[2], "r");
 		
 		// exception
-		if (fp_plain == NULL) {
+		if (NULL == fp_plain) {
 			printf("Unable to open the file '%s'\n", argv[2]);
 			exit(1);
 		}

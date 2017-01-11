@@ -9,7 +9,7 @@
 #include <gmp.h>
 #include <string.h>
 
-#define LENGTH 	2048
+#define LENGTH 	4096
 #define MIN 	5000
 #define MAX 	50000
 
@@ -98,6 +98,7 @@ unsigned char * i2osp(mpz_t x, int xLen) {
 	if (mpz_cmp(x, pow256) >= 0) {
 		printf("Integer too large\n");
 		mpz_clear(pow256);
+		exit(1);
 		//return -1;
 	}
 	
@@ -197,7 +198,7 @@ void rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
     
     // Checking message length
     if (comp1 < 0 || comp2 > 0) {
-		printf("Message representative out of range\n");
+		printf("sSMessage representative out of range\n");
 		mpz_clear(sub);
 		exit(1);
 	}
@@ -259,7 +260,7 @@ void rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
  *
  * Error: "message too long"
  */
-void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char * M, char *filename) {
+void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// vars
 	size_t mLen, k;
 	unsigned char *PS, *EM, *C;
@@ -270,8 +271,8 @@ void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char * M, char *filename) {
 	int i;
 	
 	// assigning	
-	mLen = strlen(M);
-	k = strlen(mpz_get_str(NULL, 10, n));
+	mLen = sizeof(M);
+	k = mpz_size(n);
 	
 	// length checking 
 	if (mLen > (k-11)) {
@@ -300,6 +301,7 @@ void rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char * M, char *filename) {
 		}
 		
 		PS[i] = (unsigned char) mpz_get_ui(random_char);
+		mpz_set_d(random_char, 0);
 	}
 	EM = malloc(k * sizeof(unsigned char));
 	mpz_clears(random_char, max_char, NULL);
