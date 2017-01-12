@@ -1,3 +1,5 @@
 *.o
 .rsa
 .rsa/*
+plain_text
+plain_text.enc
