@@ -225,7 +225,7 @@ int rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message) {
  *
  * Assumption: RSA private key K is valid
  */
-int rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
+int rsadp(mpz_t message, mpz_t n, mpz_t d, mpz_t cipher) {
 	mpz_t sub;
 	int comp1, comp2;
 	
@@ -237,6 +237,8 @@ int rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
 	comp1 = mpz_cmp_ui(cipher, 0);
 	comp2 = mpz_cmp(cipher, sub);
 	
+	gmp_printf("n = \n%Zd\n", n);
+	gmp_printf("\ncipher = \n%Zd\n", cipher);
 	// Checking cipher representative
 	if (comp1 < 0 || comp2 > 0) {
 		printf("Cipher representative out of range\n");
@@ -245,8 +247,7 @@ int rsadp(mpz_t deciphered, mpz_t n, mpz_t d, mpz_t cipher) {
 	}
 	
 	// Let m = c^d mod n
-	mpz_powm(deciphered, cipher, d, n);
-	
+	mpz_powm(message, cipher, d, n);
 	return 0;
 }
 
@@ -383,40 +384,88 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
  *
  * Error: "decryption error"
  */
-unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int k, unsigned char *C, char* filename) {
+int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char *C, char* filename) {
 	// vars
-	int n_len, i;
+	int n_len, i, error, count;
 	mpz_t c, m;
 	unsigned char *EM;
+	FILE *fp_rsa;
 	
 	// retrieving modulus length
-	n_len = strlen(mpz_get_str(NULL, 10, n));
+	n_len = mpz_size(n) * GMP_LIMB_BITS / 8;
 	
 	// Length checking: If the length of the ciphertext C is not k octets
     // (or if k < 11), output "decryption error" and stop.
     if (k < 11 || n_len != k) {
 		printf("Decryption error.\n");
-		exit(1);
+		return -1;
 	}
 	
 	// Convert the ciphertext C to an integer ciphertext
     // representative c
     mpz_init(c);
-    //os2ip(c, C);
+    os2ip(c, C, k);
     
     // Apply the RSADP decryption primitive to the RSA
     // private key (n, d) and the ciphertext representative c to
     // produce an integer message representative m
 	mpz_init(m);
-	rsadp(m, n, d, c);
+	if (-1 == rsadp(m, n, d, c)) {
+		return -1;
+	}
 	
 	// Convert the message representative m to an encoded message EM
     // of length k octets
-    i2osp(EM, m, k);
-    
+    if (-1 == i2osp(EM, m, k)) {
+		mpz_clear(n);
+		free(EM);
+		return -1;
+	}
 	
-	unsigned char *M;
-	// TODO: Finish the function
+	// EME-PKCS1-v1_5 decoding: Separate the encoded message EM into an
+    // octet string PS consisting of nonzero octets and a message M as
+    // EM = 0x00 || 0x02 || PS || 0x00 || M.
+    if (EM[0] != 0 && EM[1] != 2) {
+		printf("Decryption error.\n");
+		free(EM);
+		return -1;
+	}
 	
-	return M;
+	// EM is k octets
+	i = 2;
+	error = 1;
+	count = -1;
+	while (i != k) {
+		if (EM[i] == 0) {
+			error = 0;
+			M = malloc((k-i) * sizeof(unsigned char *));
+			memset(M, '\0', (k-i));
+			
+			for (i; i<k; i++) {
+				M[++count] = EM[i];
+			}
+		}
+		i++;
+	}
+	free(EM);
+	
+	// if no 0 found, error
+	if (1 == error) {
+		printf("Decryption error\n");
+		return -1;
+	}
+	
+	fp_rsa = fopen(filename, "w");
+	if (NULL == fp_rsa) {
+		printf("Unable to open a new file for writing decrypted text. Aborting.\n");
+		return -1;
+	}
+	
+	// writing
+	for (i=0; i<strlen(M); i++) {
+		fputc(M[i], fp_rsa);
+	}
+	fclose(fp_rsa);
+	
+	return 0;
 }

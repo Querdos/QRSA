@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 	else if (strcmp(argv[1], "--decrypt") == 0) {
 		// vars
 		FILE *chars_count, *fp_encrypted;
-		unsigned char *encrypted;
+		unsigned char *encrypted, *decrypted;
 		char *wc_command, chars_result[5];
 		mpz_t n, d;
 		int chars, i;
@@ -124,8 +124,11 @@ int main(int argc, char** argv) {
 		fclose(fp_encrypted);
 		
 		// decrypting
-		// TODO: finish decryption function
-		rsads_pkcs1_decrypt(n, d, chars, encrypted, "decrypted");
+		if (-1 == rsads_pkcs1_decrypt(decrypted, n, d, chars, encrypted, "decrypted")) {
+			mpz_clears(n, d, NULL);
+			free(encrypted);
+			return EXIT_FAILURE;
+		}
 		
 		// clearing
 		mpz_clears(n, d, NULL);
