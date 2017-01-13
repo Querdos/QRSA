@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lgmp -I.
+CFLAGS=-DDEBUG -g -lgmp -I.
 DEPS = rsa.h rsa_keys.h
 OBJ = rsa_keys.o rsa.o main.o 
 

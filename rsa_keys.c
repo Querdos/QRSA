@@ -49,7 +49,6 @@ int save_keypair(mpz_t n, mpz_t e, mpz_t d) {
 		return -1;
 	}
 	
-	count = 0;
 	// allocating
 	e_str = malloc((mpz_sizeinbase(e, BASE_SAVE)+2) * sizeof(char));
 	memset(e_str, '\0', sizeof(e_str));
@@ -209,12 +208,12 @@ int load_pub(mpz_t n, mpz_t e) {
 	pclose(lines_cmd);
 	
 	// allocating e_str (will never change: HbN)
-	e_str 	 = malloc(3 * sizeof(char));
+	e_str 	 = malloc(4 * sizeof(char *));
 	memset(e_str, '\0', sizeof(e_str));
 	
 	// allocating n_str (some \n will remain...)
 	// TODO: allocate the correct space
-	n_str 	 = malloc(chars * sizeof(char));
+	n_str 	 = malloc(chars * sizeof(char *));
 	memset(n_str, '\0', sizeof(n_str));
 	
 	step = 1;

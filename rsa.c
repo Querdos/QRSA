@@ -9,9 +9,9 @@
 #include <gmp.h>
 #include <string.h>
 
-#define LENGTH 	4096
-#define MIN 	5000
-#define MAX 	50000
+#define MOD_LENGTH 	1024
+#define MIN 		5000
+#define MAX 		50000
 
 /**
  * Generate a prime with a bit length of 'length'
@@ -46,9 +46,10 @@ void generate_keypair(mpz_t n, mpz_t e, mpz_t d) {
 	mpz_t lambda; // totient, according to PKCS#1
 	
 	// Assigning
+	// With p and q of 512bits, the modulus will be 1024bits
 	mpz_inits(p, q, NULL);
-	generate_prime(p, LENGTH);
-	generate_prime(q, LENGTH);
+	generate_prime(p, MOD_LENGTH/2); 
+	generate_prime(q, MOD_LENGTH/2);
 	
 	mpz_inits(p1, q1, n, NULL);
 	mpz_mul(n, p, q); 		// n = p * q
@@ -108,7 +109,9 @@ int i2osp(char *X, mpz_t x, int xLen) {
 	mpz_init(x_copy);
 	mpz_set(x_copy, x);
 
-	X = malloc(xLen * sizeof(unsigned char));
+	X = malloc(xLen * sizeof(unsigned char *));
+	memset(X, '\0', sizeof(X));
+	
 	i = xLen - 1;
 	mpz_inits(q, r, NULL);
 	while (mpz_cmp_d(x_copy, 256) > 0) {
@@ -270,7 +273,7 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	
 	// assigning	
 	mLen = strlen(M);
-	k 	 = mpz_sizeinbase(n, 10) - 1;
+	k 	 = mpz_size(n) * GMP_LIMB_BITS / 8;
 	
 	// length checking 
 	if (mLen > (k-11)) {
@@ -279,8 +282,8 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	}
 	
 	// allocating PS
-	PS = malloc((k - mLen - 3) * sizeof(unsigned char));
-	memset(PS, '\0', sizeof(PS));
+	PS = malloc((k - mLen - 3) * sizeof(unsigned char *));
+	memset(PS, '\0', k-mLen-3);
 	
 	// Generate an octet string PS of length k - mLen - 3 consisting
     // of pseudo-randomly generated nonzero octets.  The length of PS
@@ -290,15 +293,18 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 		PS[i] = rand() % 255 + 1;
 	}
 
-	EM = malloc(k * sizeof(unsigned char));
+	EM = malloc(k * sizeof(unsigned char *));
 	memset(EM, '\0', k);
     
     // Concatenate PS, the message M, and other padding to form an
     // encoded message EM of length k octets as
 	// EM = 00 | 02 | PS | 00 | M
-	EM[0] = 0;
-	EM[1] = 2;
 	
+	// setting first octets
+	EM[0] = 0x00;
+	EM[1] = 0x02;
+	
+	// concatenating PS
 	i=2;
 	count = 0;
 	for (i; i<(k-mLen-1); i++) {
@@ -306,8 +312,10 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 		count++;
 	}
 	
-	EM[i] = 0;
+	// setting 00 octets before M
+	EM[i] = 0x00;
 	
+	// concatenating M
 	i++;
 	count = 0;
 	for (i; i<k; i++) {
@@ -358,7 +366,6 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 		fputc(C[i], fp_encrypted);
 	}
 	fclose(fp_encrypted);
-	free(C);
 	
 	return 0;
 }
@@ -409,7 +416,7 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int k, unsigned char *C, c
     
 	
 	unsigned char *M;
-	
+	// TODO: Finish the function
 	
 	return M;
 }

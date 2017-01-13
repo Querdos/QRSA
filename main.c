@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 	// checking number of arguments
 	if (argc > 3 || argc == 1) {
 		printf("Usage: %s --[decrypt, encrypt, generate-key-pair] file\nUsage: %s --generate-key-pair\n\n", argv[0], argv[0]);
-		exit(1);
+		return EXIT_FAILURE;
 	}
 	
 	// for encryption
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 		
 		// generating the key pair
 		if (load_pub(n, e) == -1) {
-			exit(1);
+			return EXIT_FAILURE;
 		}
 	
 		// opening the file (not encrypted)
@@ -48,7 +48,8 @@ int main(int argc, char** argv) {
 		// exception
 		if (NULL == fp_plain) {
 			printf("Unable to open the file '%s'\n", argv[2]);
-			exit(1);
+			mpz_clears(n, e, NULL);
+			return EXIT_FAILURE;
 		}
 	
 		// retreiving size of *plain
@@ -74,7 +75,7 @@ int main(int argc, char** argv) {
 		if (-1 == rsaes_pkcs1_encrypt(n, e, plain, filename)) {
 			mpz_clears(n, e, NULL);
 			free(filename);
-			exit(1);
+			return EXIT_FAILURE;
 		}
 		
 		// cleaning
@@ -93,22 +94,25 @@ int main(int argc, char** argv) {
 		
 		// trying to open the file
 		fp_encrypted = fopen(argv[2], "r");
-		if (fp_encrypted == NULL) {
+		if (NULL == fp_encrypted) {
 			printf("File doesn't exists. Aborting.\n");
-			exit(1);
+			return EXIT_FAILURE;
 		}
 		
 		// retrieving rsa key pair (private)
 		if (-1 == load_priv(n, d)) {
-			exit(1);
+			mpz_clears(n, d, NULL);
+			return EXIT_FAILURE;
 		}
 		
 		// number of chars in encrypted file
 		wc_command = malloc((strlen(argv[2]) + 8) * sizeof(char));
 		sprintf(wc_command, "wc -c < %s", argv[2]);
+		
 		chars_count = popen(wc_command, "r");
 		fgets(chars_result, 5, chars_count);
 		chars = atoi(chars_result);
+		
 		free(wc_command);
 		pclose(chars_count);
 		
@@ -137,17 +141,17 @@ int main(int argc, char** argv) {
 		dir_exists = mkdir(".rsa", 0755);
 		
 		// .rsa exists
-		if (dir_exists == -1) {
+		if (-1 == dir_exists) {
 			char user_choice;
 			printf("Directory exists. Generate new key pair? [y|n] ");
 			user_choice = getchar();
 			
 			if (user_choice != 'y' && user_choice != 'n') {
 				printf("Aborting.\n");
-				exit(1);
+				return EXIT_FAILURE;
 			}
 			
-			if (user_choice == 'y') {
+			if ('y' == user_choice) {
 				// init
 				mpz_inits(n, e, d, NULL);
 				
@@ -159,7 +163,7 @@ int main(int argc, char** argv) {
 				// saving
 				if (-1 == save_keypair(n, e, d)) {
 					mpz_clears(n, e, d, NULL);
-					exit(1);
+					return EXIT_FAILURE;
 				}
 				
 				// cleaning
@@ -188,8 +192,8 @@ int main(int argc, char** argv) {
 	// option not recognized
 	else {
 		printf("Usage: %s --[decrypt, encrypt, generate-key-pair] file\n", argv[0]);
-		exit(1);
+		return EXIT_FAILURE;
 	}
 	
-	return 0;
+	return EXIT_SUCCESS;
 }
