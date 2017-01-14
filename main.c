@@ -107,6 +107,12 @@ int main(int argc, char** argv) {
 		mpz_t n, d;
 		int chars, i;
 		
+		// retrieving rsa key pair (private)
+		if (load_priv(n, d) == -1) {
+			mpz_clears(n, d, NULL);
+			return EXIT_FAILURE;
+		}
+		
 		// trying to open the file
 		fp_encrypted = fopen(argv[2], "r");
 		if (NULL == fp_encrypted) {
@@ -114,14 +120,8 @@ int main(int argc, char** argv) {
 			return EXIT_FAILURE;
 		}
 		
-		// retrieving rsa key pair (private)
-		if (-1 == load_priv(n, d)) {
-			mpz_clears(n, d, NULL);
-			return EXIT_FAILURE;
-		}
-		
 		// number of chars in encrypted file
-		wc_command = malloc((strlen(argv[2]) + 8) * sizeof(char));
+		wc_command = malloc((strlen(argv[2]) + 8) * sizeof(char *));
 		sprintf(wc_command, "wc -c < %s", argv[2]);
 		
 		chars_count = popen(wc_command, "r");
@@ -139,15 +139,16 @@ int main(int argc, char** argv) {
 		fclose(fp_encrypted);
 		
 		// decrypting
-		if (-1 == rsads_pkcs1_decrypt(decrypted, n, d, chars, encrypted, "decrypted")) {
-			mpz_clears(n, d, NULL);
-			free(encrypted);
+		decrypted = rsads_pkcs1_decrypt(n, d, chars, encrypted);
+		mpz_clears(n, d, NULL);
+		free(encrypted);
+		if (NULL == decrypted) {
+			free(decrypted);
 			return EXIT_FAILURE;
 		}
 		
-		// clearing
-		mpz_clears(n, d, NULL);
-		free(encrypted);
+		// writing to file
+		free(decrypted);
 	}
 	
 	// key pair generation

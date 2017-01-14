@@ -239,9 +239,8 @@ int rsadp(mpz_t message, mpz_t n, mpz_t d, mpz_t cipher) {
 	mpz_sub_ui(sub, n, 1);
 	comp1 = mpz_cmp_ui(cipher, 0);
 	comp2 = mpz_cmp(cipher, sub);
+	mpz_clear(sub);
 	
-	gmp_printf("n = \n%Zd\n", n);
-	gmp_printf("\ncipher = \n%Zd\n", cipher);
 	// Checking cipher representative
 	if (comp1 < 0 || comp2 > 0) {
 		printf("Cipher representative out of range\n");
@@ -382,35 +381,34 @@ unsigned char * rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M) {
  *
  * Error: "decryption error"
  */
-int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char *C, char* filename) {
+unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int cLen, unsigned char *C) {
 	// vars
-	int n_len, i, error, count;
+	int k, i, error, count;
 	mpz_t c, m;
-	unsigned char *EM;
+	unsigned char *EM, *M;
 	FILE *fp_rsa;
 	
 	// retrieving modulus length
-	n_len = mpz_size(n) * GMP_LIMB_BITS / 8;
+	k = mpz_size(n) * GMP_LIMB_BITS / 8;
 	
 	// Length checking: If the length of the ciphertext C is not k octets
     // (or if k < 11), output "decryption error" and stop.
-    if (k < 11 || n_len != k) {
+    if (cLen < 11 || cLen != k) {
 		printf("Decryption error.\n");
-		return -1;
+		return NULL;
 	}
 	
 	// Convert the ciphertext C to an integer ciphertext
     // representative c
     mpz_init(c);
-    os2ip(c, C, n_len);
-    gmp_printf("c = \n%Zd\n", c);
+    os2ip(c, C, k);
     
     // Apply the RSADP decryption primitive to the RSA
     // private key (n, d) and the ciphertext representative c to
     // produce an integer message representative m
 	mpz_init(m);
 	if (-1 == rsadp(m, n, d, c)) {
-		return -1;
+		return NULL;
 	}
 	
 	// Convert the message representative m to an encoded message EM
@@ -419,53 +417,46 @@ int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char
     if (NULL == EM) {
 		mpz_clear(n);
 		free(EM);
-		return -1;
+		return NULL;
 	}
 	
 	// EME-PKCS1-v1_5 decoding: Separate the encoded message EM into an
     // octet string PS consisting of nonzero octets and a message M as
     // EM = 0x00 || 0x02 || PS || 0x00 || M.
+    
+    // Checking bit 1 and 2
     if (EM[0] != 0 && EM[1] != 2) {
 		printf("Decryption error.\n");
 		free(EM);
-		return -1;
+		return NULL;
 	}
 	
-	// EM is k octets
-	i = 2;
+	i=2;
 	error = 1;
-	count = -1;
-	while (i != k) {
-		if (EM[i] == 0) {
+	count = 0;
+	for (i;i<k;i++) {
+		// octet 0 ?
+		if (EM[i] == 0 && error == 1) {
+			// ok to continue
 			error = 0;
-			M = malloc((k-i) * sizeof(unsigned char *));
-			memset(M, '\0', (k-i));
 			
-			for (i; i<k; i++) {
-				M[++count] = EM[i];
-			}
+			// size of the message: k - i
+			M = (char *) malloc((k - i) * sizeof(char *));
+			memset(M, '\0', k-i);
+			continue;
 		}
-		i++;
+		
+		// no error, filling the message representative
+		if (0 == error) {
+			M[count++] = (char) EM[i];
+		}
 	}
-	free(EM);
+	printf("%s\n", M);
 	
-	// if no 0 found, error
 	if (1 == error) {
-		printf("Decryption error\n");
-		return -1;
+		printf("Decryption error.\n");
+		return NULL;
 	}
 	
-	fp_rsa = fopen(filename, "w");
-	if (NULL == fp_rsa) {
-		printf("Unable to open a new file for writing decrypted text. Aborting.\n");
-		return -1;
-	}
-	
-	// writing
-	for (i=0; i<strlen(M); i++) {
-		fputc(M[i], fp_rsa);
-	}
-	fclose(fp_rsa);
-	
-	return 0;
+	return M;
 }

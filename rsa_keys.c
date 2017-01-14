@@ -103,40 +103,48 @@ int save_keypair(mpz_t n, mpz_t e, mpz_t d) {
  */
 int load_priv(mpz_t n, mpz_t d) {
 	// vars
-	FILE *fp_rsa, *lines_cmd;
-	char *n_str, *d_str, line[MAX_CHARS_LINES];
-	int lines, i, step, count;
+	FILE *fp_rsa_pub, *lines_cmd;
+	char *d_str;
+	char *n_str, line[MAX_CHARS_LINES], char_pub;
+	int chars, i, step, count;
 	
 	// public key
-	fp_rsa = fopen(".rsa/rsa.priv", "r");
+	fp_rsa_pub = fopen(".rsa/rsa.priv", "r");
 	
 	// existance
-	if (fp_rsa == NULL) {
+	if (NULL == fp_rsa_pub) {
 		printf("File '.rsa/rsa.priv' doesn't exists. Aborting.\n");
 		return -1;
 	}
 	
 	// counting lines
-	lines_cmd = popen("wc -l < .rsa/rsa.priv", "r");
+	lines_cmd = popen("wc -m < .rsa/rsa.pub", "r");
 	fgets(line, 10, lines_cmd);
-	lines = atoi(line) - 2; // removing first and last line
+	chars = atoi(line); // removing first and last line
 	pclose(lines_cmd);
 	
-	// allocating
-	n_str 	 = malloc(50 * lines * sizeof(char));
-	d_str 	 = malloc(50 * lines * sizeof(char));
+	// allocating e_str (will never change: HbN)
+	d_str = malloc(chars * sizeof(char *));
+	if (NULL == d_str) {
+		printf("Memory error.\n");
+		exit(1);
+	}
 	
-	// init 
-	memset(n_str, '\0', sizeof(n_str));
-	memset(d_str, '\0', sizeof(d_str));
+	memset(d_str, '\0', chars);
 	
-	// first line
-	fgets(line, MAX_CHARS_LINES+2, fp_rsa);
-	fgets(line, MAX_CHARS_LINES+2, fp_rsa); // +2 : \n and null char
+	// allocating n_str (some \n will remain...)
+	n_str 	 = (char *) malloc(chars * sizeof(char *));
+	if (NULL == n_str) {
+		printf("Memory error.\n");
+		free(d_str);
+		exit(1);
+	}
+	
+	memset(n_str, '\0', chars);
 	
 	step = 1;
 	count = 0;
-	while (fgets(line, MAX_CHARS_LINES+2, fp_rsa) != NULL) {
+	while (fgets(line, MAX_CHARS_LINES+2, fp_rsa_pub) != NULL) {
 		// skipping first line
 		if (strcmp(line, "--- BEGIN PRIVATE KEY ---\n") == 0) {
 			continue;
@@ -144,7 +152,7 @@ int load_priv(mpz_t n, mpz_t d) {
 		
 		// skipping last line
 		if (strcmp(line, "--- END PRIVATE KEY ---\n") == 0) {
-			fclose(fp_rsa);
+			fclose(fp_rsa_pub);
 			break;	
 		}
 		
@@ -179,7 +187,7 @@ int load_priv(mpz_t n, mpz_t d) {
 	free(n_str);
 	mpz_set_str(d, d_str, BASE_SAVE);
 	free(d_str);
-	
+
 	return 0;
 }
 
