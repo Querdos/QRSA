@@ -244,7 +244,6 @@ int rsadp(mpz_t message, mpz_t n, mpz_t d, mpz_t cipher) {
 	// Checking cipher representative
 	if (comp1 < 0 || comp2 > 0) {
 		printf("Cipher representative out of range\n");
-		mpz_clear(sub);
 		return -1;
 	}
 	
@@ -410,11 +409,14 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int cLen, unsigned char *C
 	if (-1 == rsadp(m, n, d, c)) {
 		return NULL;
 	}
+	mpz_clear(c);
 	
 	// Convert the message representative m to an encoded message EM
     // of length k octets
     EM = i2osp(m, k);
+    mpz_clear(m);
     if (NULL == EM) {
+		mpz_clear(d);
 		mpz_clear(n);
 		free(EM);
 		return NULL;
@@ -442,6 +444,11 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int cLen, unsigned char *C
 			
 			// size of the message: k - i
 			M = (char *) malloc((k - i) * sizeof(char *));
+			if (NULL == M) {
+				printf("Memory error\n");
+				exit(1);
+			}
+			
 			memset(M, '\0', k-i);
 			continue;
 		}
@@ -451,7 +458,7 @@ unsigned char * rsads_pkcs1_decrypt(mpz_t n, mpz_t d, int cLen, unsigned char *C
 			M[count++] = (char) EM[i];
 		}
 	}
-	printf("%s\n", M);
+	free(EM);
 	
 	if (1 == error) {
 		printf("Decryption error.\n");

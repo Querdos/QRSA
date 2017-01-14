@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 	// for decryption
 	else if (strcmp(argv[1], "--decrypt") == 0) {
 		// vars
-		FILE *chars_count, *fp_encrypted;
+		FILE *chars_count, *fp_encrypted, *fp_rsa;
 		unsigned char *encrypted, *decrypted;
 		char *wc_command, chars_result[5];
 		mpz_t n, d;
@@ -148,6 +148,19 @@ int main(int argc, char** argv) {
 		}
 		
 		// writing to file
+		fp_rsa = fopen("decrypted", "w");
+		if (NULL == fp_rsa) {
+			printf("Unable to open a new file for operation. Aborting.\n");
+			free(decrypted);
+			return EXIT_FAILURE;
+		}
+		
+		for (i=0; i<strlen(decrypted); i++) {
+			fputc(decrypted[i], fp_rsa);
+		}
+		fclose(fp_rsa);
+		
+		// freeing
 		free(decrypted);
 	}
 	
