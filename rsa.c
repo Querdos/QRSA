@@ -85,10 +85,10 @@ void generate_keypair(mpz_t n, mpz_t e, mpz_t d) {
  *
  * Error: "integer too large"
  */
-int i2osp(char *X, mpz_t x, int xLen) {
+unsigned char * i2osp(mpz_t x, int xLen) {
 	// vars
 	mpz_t pow256, q, r, x_copy;
-	unsigned char temp;
+	unsigned char temp, *X;
 	int i;
 	
 	// init
@@ -96,20 +96,23 @@ int i2osp(char *X, mpz_t x, int xLen) {
 	mpz_ui_pow_ui(pow256, 256, xLen);
 	
 	// length checking
+	mpz_clear(pow256);
 	if (mpz_cmp(x, pow256) >= 0) {
 		printf("Integer too large\n");
-		mpz_clear(pow256);
-		return -1;
+		return NULL;
 	}
-	
-	// clearing pow256
-	mpz_clear(pow256);
 		
 	// setting initial values
 	mpz_init(x_copy);
 	mpz_set(x_copy, x);
 
-	X = malloc(xLen * sizeof(unsigned char *));
+	X = (unsigned char *) malloc(xLen * sizeof(unsigned char *));
+	if (NULL == X) {
+		printf("Memory error.\n");
+		mpz_clear(x_copy);
+		exit(1);
+	}
+	
 	memset(X, '\0', sizeof(X));
 	
 	i = xLen - 1;
@@ -129,7 +132,7 @@ int i2osp(char *X, mpz_t x, int xLen) {
 	X[i] = (unsigned char) mpz_get_d(q);
 	
 	mpz_clear(q);
-	return 0;
+	return X;
 } 
 
 /**
@@ -263,7 +266,7 @@ int rsadp(mpz_t message, mpz_t n, mpz_t d, mpz_t cipher) {
  *
  * Error: "message too long"
  */
-int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
+unsigned char * rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M) {
 	// vars
 	int mLen, k;
 	unsigned char *PS, *EM, *C;
@@ -279,11 +282,15 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// length checking 
 	if (mLen > (k-11)) {
 		printf("Message too large\n");
-		return -1;
+		return NULL;
 	}
 	
 	// allocating PS
 	PS = malloc((k - mLen - 3) * sizeof(unsigned char *));
+	if (NULL == PS) {
+		printf("Memory error.\n");
+		exit(1);
+	}
 	memset(PS, '\0', k-mLen-3);
 	
 	// Generate an octet string PS of length k - mLen - 3 consisting
@@ -295,6 +302,10 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	}
 
 	EM = malloc(k * sizeof(unsigned char *));
+	if (NULL == EM) {
+		printf("Memory error.\n");
+		exit(1);
+	}//
 	memset(EM, '\0', k);
     
     // Concatenate PS, the message M, and other padding to form an
@@ -302,8 +313,8 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	// EM = 00 | 02 | PS | 00 | M
 	
 	// setting first octets
-	EM[0] = 0x00;
-	EM[1] = 0x02;
+	EM[0] = 0;
+	EM[1] = 2;
 	
 	// concatenating PS
 	i=2;
@@ -314,7 +325,7 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
 	}
 	
 	// setting 00 octets before M
-	EM[i] = 0x00;
+	EM[i] = 0;
 	
 	// concatenating M
 	i++;
@@ -338,7 +349,7 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
     if (-1 == rsaep(c, n, e, m)) {
 		mpz_clear(c);
 		mpz_clear(m);
-		return -1;
+		return NULL;
 	}
 	
 	// clearing
@@ -346,29 +357,16 @@ int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char *M, char *filename) {
     
     // Convert the ciphertext representative c to a ciphertext C of
     // length k octets
-    if (-1 == i2osp(C, c, k)) {
+    C = i2osp(c, k);
+    if (NULL == C) {
 		mpz_clear(c);
-		free(C);
-		return -1;
+		return NULL;
 	}
 	
 	// clearing
     mpz_clear(c);
 	
-    // saving to file
-    fp_encrypted = fopen(filename, "w");
-    if (NULL == fp_encrypted) {
-		printf("Unable to open file %s for saving. Aborting.\n", filename);
-		free(C);
-		return -1;
-	}
-	
-    for (i=0; i<k; i++) {
-		fputc(C[i], fp_encrypted);
-	}
-	fclose(fp_encrypted);
-	
-	return 0;
+	return C;
 }
 
 /**
@@ -404,7 +402,8 @@ int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char
 	// Convert the ciphertext C to an integer ciphertext
     // representative c
     mpz_init(c);
-    os2ip(c, C, k);
+    os2ip(c, C, n_len);
+    gmp_printf("c = \n%Zd\n", c);
     
     // Apply the RSADP decryption primitive to the RSA
     // private key (n, d) and the ciphertext representative c to
@@ -416,7 +415,8 @@ int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char
 	
 	// Convert the message representative m to an encoded message EM
     // of length k octets
-    if (-1 == i2osp(EM, m, k)) {
+    EM = i2osp(m, k);
+    if (NULL == EM) {
 		mpz_clear(n);
 		free(EM);
 		return -1;

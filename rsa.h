@@ -11,10 +11,10 @@
 void generate_prime(mpz_t prime, int length);
 void generate_keypair(mpz_t n, mpz_t e, mpz_t d);
 
-int i2osp(char *X, mpz_t x, int xLen);
+unsigned char * i2osp(mpz_t x, int xLen);
 void os2ip(mpz_t x, unsigned char * X);
 
-int rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char * M, char *filename);
+unsigned char * rsaes_pkcs1_encrypt(mpz_t n, mpz_t e, unsigned char * M);
 int rsads_pkcs1_decrypt(unsigned char *M, mpz_t n, mpz_t d, int k, unsigned char *C, char *filename);
 
 int rsaep(mpz_t cipher, mpz_t n, mpz_t e, mpz_t message);

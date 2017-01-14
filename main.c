@@ -31,17 +31,19 @@ int main(int argc, char** argv) {
 	// for encryption
 	if (strcmp(argv[1], "--encrypt") == 0) {		
 		// vars
-		FILE *fp_plain, *size_of_file;
+		FILE *fp_plain, *size_of_file, *fp_rsa;
 		mpz_t n, e;
 		unsigned char *encrypted, *plain;
 		unsigned long size;
 		char command_wc[11], count[3], *filename;
+		int k, i;
 		
 		// generating the key pair
 		if (load_pub(n, e) == -1) {
 			return EXIT_FAILURE;
 		}
-	
+		k = mpz_size(n) * GMP_LIMB_BITS / 8;
+		
 		// opening the file (not encrypted)
 		fp_plain = fopen(argv[2], "r");
 		
@@ -59,9 +61,10 @@ int main(int argc, char** argv) {
 		fgets(count, 3, size_of_file);
 		size = atoi(count);
 		pclose(size_of_file);
-	
+		
 		// allocating memory for string
 		plain = malloc(size * sizeof(unsigned char));
+		memset(plain, '\0', sizeof(plain));
 		
 		// retrieving plain text
 		fgets(plain, size, fp_plain);
@@ -71,16 +74,28 @@ int main(int argc, char** argv) {
 		filename = malloc(10 * strlen(argv[2]) * sizeof(char));
 		memset(filename, '\0', sizeof(filename));
 		
+		// encrypting
+		encrypted = rsaes_pkcs1_encrypt(n, e, plain);
+		free(plain);
+		mpz_clears(n, e, NULL);
+		
+		// opening file
 		sprintf(filename, "%s.enc", argv[2]);
-		if (-1 == rsaes_pkcs1_encrypt(n, e, plain, filename)) {
-			mpz_clears(n, e, NULL);
-			free(filename);
+		fp_rsa = fopen(filename, "w");
+		free(filename);
+		if (NULL == fp_rsa) {
+			printf("Error opening file for write operation. Aborting.\n");
 			return EXIT_FAILURE;
 		}
 		
+		// writing encrypted message
+		for (i=0; i<k; i++) {
+			fputc(encrypted[i], fp_rsa);
+		}
+		
 		// cleaning
-		free(filename);
-		mpz_clears(n, e, NULL);
+		free(encrypted);
+		fclose(fp_rsa);
 	}
 	
 	// for decryption
