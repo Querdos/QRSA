@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 		FILE *fp_plain, *size_of_file, *fp_rsa;
 		mpz_t n, e;
 		unsigned char *encrypted, *plain;
-		unsigned long size;
+		unsigned long size, max_line;
 		char command_wc[11], count[3], *filename;
 		int k, i;
 		
@@ -58,26 +58,43 @@ int main(int argc, char** argv) {
 		sprintf(command_wc, "wc -c < %s", argv[2]);
 		size_of_file = popen(command_wc, "r");
 		
-		fgets(count, 3, size_of_file);
-		size = atoi(count);
+		fgets(count, 10, size_of_file);
 		pclose(size_of_file);
+		size = atoi(count);
 		
 		// allocating memory for string
-		plain = malloc(size * sizeof(unsigned char));
-		memset(plain, '\0', sizeof(plain));
+		plain = (unsigned char *) malloc(size * sizeof(unsigned char *));
+		if (NULL == plain) {
+			printf("Memory error.\n");
+			return EXIT_FAILURE;
+		}
+		memset(plain, '\0', size);
 		
 		// retrieving plain text
-		fgets(plain, size, fp_plain);
+		i = 0;
+		while (1) {
+			// getting the line
+			plain[i++] = fgetc(fp_plain);
+			
+			if (feof(fp_plain)) {
+				break;
+			}
+		}
+		printf("%s\n", plain);
+		exit(1);
 		fclose(fp_plain);
-		
-		// encrypting plain text
-		filename = malloc(10 * strlen(argv[2]) * sizeof(char));
-		memset(filename, '\0', sizeof(filename));
 		
 		// encrypting
 		encrypted = rsaes_pkcs1_encrypt(n, e, plain);
 		free(plain);
 		mpz_clears(n, e, NULL);
+		if (NULL == encrypted) {
+			return EXIT_FAILURE;
+		}
+		
+		// encrypting plain text
+		filename = (char *) malloc(10 * strlen(argv[2]) * sizeof(char *));
+		memset(filename, '\0', sizeof(filename));
 		
 		// opening file
 		sprintf(filename, "%s.enc", argv[2]);

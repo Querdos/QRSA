@@ -9,7 +9,7 @@
 #include <gmp.h>
 #include <string.h>
 
-#define MOD_LENGTH 	1024
+#define MOD_LENGTH 	2048
 #define MIN 		5000
 #define MAX 		50000
 
