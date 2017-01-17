@@ -199,8 +199,15 @@ void decrypt_file(char *filename_encrypted) {
 		
 		// allocating
 		encrypted = malloc(nb_decrypt * sizeof(*encrypted));
-		decrypted = malloc(nb_decrypt * sizeof(*decrypted));
 		if (NULL == encrypted) {
+			mpz_clears(n, d, NULL);
+			printf("Memory error.\n");
+			exit(1);
+		}
+		
+		decrypted = malloc(nb_decrypt * sizeof(*decrypted));
+		if (NULL == decrypted) {
+			mpz_clears(n, d, NULL);
 			printf("Memory error.\n");
 			exit(1);
 		}
@@ -209,11 +216,13 @@ void decrypt_file(char *filename_encrypted) {
 			// allocating
 			encrypted[i] = malloc(k * sizeof(encrypted[i]));
 			if (NULL == encrypted[i]) {
+				free(encrypted);
+				mpz_clears(n, d, NULL);
 				printf("Memory error.\n");
 				exit(1);
 			}
 			
-			// retrieving first part
+			// retrieving encrypted data
 			for (j=0; j<k; j++) {				
 				encrypted[i][j] = fgetc(fp_encrypted);
 			}
@@ -221,6 +230,9 @@ void decrypt_file(char *filename_encrypted) {
 			decrypted[i] = rsads_pkcs1_decrypt(n, d, k, encrypted[i]);
 			free(encrypted[i]);
 			if (NULL == decrypted[i]) {
+				mpz_clears(n, d, NULL);
+				free(encrypted);
+				free(decrypted);
 				exit(1);
 			}
 			
@@ -229,6 +241,10 @@ void decrypt_file(char *filename_encrypted) {
 			}
 			free(decrypted[i]);
 		}
+		
+		mpz_clears(n, d, NULL);
+		free(encrypted);
+		free(decrypted);
 	} else {
 		// allocating
 		encrypted = malloc(sizeof(*encrypted));
